@@ -1,0 +1,714 @@
+---
+title: "Manuscript1_figures"
+author: "CEW"
+date: "2024-11-14"
+output: 
+  html_document:
+  df_print: paged
+
+---
+
+Includes figures 6-9, S1, S3, and S4
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(include = FALSE)
+library(pacman)
+pacman::p_load(tidyverse, readxl, stringr, readr, glmnet, ISLR, lubridate, ggplot2, ggpubr, stats, gridExtra, graphics, gt)
+```
+
+
+```{r pull in all data, eval=TRUE, include=FALSE}
+metals_file <- read_csv('https://pasta.lternet.edu/package/data/eml/edi/455/8/9c8c61b003923f4f03ebfe55cea8bbfd')
+
+fluxes <- read_csv("https://pasta.lternet.edu/package/data/eml/edi/1474/8/7cc135d14d92911eb7e8f6ceb096a29d")
+
+FCRDO <- read_csv("https://pasta.lternet.edu/package/data/eml/edi/271/8/fbb8c7a0230f4587f1c6e11417fe9dce")
+
+BVRDO1 <- read_csv("https://pasta.lternet.edu/package/data/eml/edi/725/5/f649de0e8a468922b40dcfa34285055e")
+
+BVRDO2 <- read_csv("https://pasta.lternet.edu/package/data/eml/edi/725/5/b7f0524aee78dcf4a2452a203a39c1f2")
+```
+
+```{r}
+#set up file path for figures, change if necessary
+myFilePath <- './figures'
+```
+
+## Seasonal Flux Paired T-Test Plot (Figure 6)
+
+```{r Fig 6 and 7 set up, eval=TRUE, include=FALSE}
+ fluxes2018_2023 <-  fluxes %>% 
+  select(Reservoir, Date, Depth_m, Duration_days, TFeFlux_gm2d, TMnFlux_gm2d) %>% 
+  na.omit() %>%
+  mutate(Layer = if_else(Depth_m <= 5, 'Epilimnion', 'Hypolimnion'),
+         Year = year(Date))
+
+avgFluxes2018_2023 <- fluxes2018_2023 %>% 
+  group_by(Reservoir, Date, Depth_m, Layer, Year) %>% 
+  summarise(Duration_days = mean(Duration_days),
+            AvgTFeFlux_gm2d = mean(TFeFlux_gm2d, na.rm = TRUE),
+            AvgTMnFlux_gm2d = mean(TMnFlux_gm2d, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  mutate(TO = NA,
+         #2018, only include data points from FCR that match data points from BVR
+         TO = if_else(Reservoir == 'FCR' & Layer == 'Epilimnion' 
+                      & Date < as.Date('2018-09-03'), 'Pre_', TO),
+         TO = if_else(Reservoir == 'FCR' & Layer == 'Hypolimnion' 
+                      & Date < as.Date('2018-07-23'), 'Pre_', TO),
+         TO = if_else(Reservoir == 'FCR' & Layer == 'Epilimnion' 
+                      & between(Date, as.Date('2018-09-03'), as.Date('2018-10-21')), 'Pre', TO),
+         TO = if_else(Reservoir == 'FCR' & Layer == 'Hypolimnion' 
+                      & between(Date, as.Date('2018-07-23'), as.Date('2018-10-21')), 'Pre', TO),
+         TO = if_else(Year == 2018 & Reservoir == 'BVR' 
+                      & Date <= as.Date('2018-09-07'), 'Pre', TO),
+         TO = if_else(Year == 2018 & Reservoir == 'FCR' 
+                      & Date >= as.Date('2018-10-21'), 'Post', TO),
+         TO = if_else(Year == 2018 & Reservoir == 'BVR' 
+                      & Date >= as.Date('2018-10-21'), 'Post', TO),
+         #2019
+         TO = if_else(Year == 2019 & Reservoir == 'FCR' & Date < as.Date('2019-10-24'), 'Pre', TO),
+         TO = if_else(Year == 2019 & Reservoir == 'BVR' & Date < as.Date('2019-10-30'), 'Pre', TO),
+         TO = if_else(Year == 2019 & Reservoir == 'FCR' & Date >= as.Date('2019-10-24'), 'Post', TO),
+         TO = if_else(Year == 2019 & Reservoir == 'BVR' & Date >= as.Date('2019-10-30'), 'Post', TO),
+         #2020
+         TO = ifelse(Year == 2020 & Reservoir == 'FCR' & Date < as.Date('2020-11-02'), 'Pre', TO),
+         TO = ifelse(Year == 2020 & Reservoir == 'BVR' & Date < as.Date('2020-11-02'), 'Pre', TO),
+         TO = ifelse(Year == 2020 & Reservoir == 'FCR' & Date >= as.Date('2020-11-02'), 'Post', TO),
+         TO = ifelse(Year == 2020 & Reservoir == 'BVR' & Date >= as.Date('2020-11-02'), 'Post', TO),
+         #2021
+         TO = ifelse(Year == 2021 & Reservoir == 'FCR' & Date < as.Date('2021-11-03'), 'Pre', TO),
+         TO = ifelse(Year == 2021 & Reservoir == 'BVR' & Date < as.Date('2021-11-05'), 'Pre', TO),
+         TO = ifelse(Year == 2021 & Reservoir == 'FCR' & Date >= as.Date('2021-11-03'), 'Post', TO),
+         TO = ifelse(Year == 2021 & Reservoir == 'BVR' & Date >= as.Date('2021-11-05'), 'Post', TO),
+         #2022
+         TO = ifelse(Year == 2022 & Reservoir == 'FCR' & Date < as.Date('2022-10-20'), 'Pre', TO),
+         TO = ifelse(Year == 2022 & Reservoir == 'BVR' & Date < as.Date('2022-10-19'), 'Pre', TO),
+         TO = ifelse(Year == 2022 & Reservoir == 'FCR' & Date >= as.Date('2022-10-20'), 'Post', TO),
+         TO = ifelse(Year == 2022 & Reservoir == 'BVR' & Date >= as.Date('2022-10-19'), 'Post', TO),
+         #2023
+         TO = ifelse(Year == 2023 & Reservoir == 'FCR' & Date < as.Date('2023-11-02'), 'Pre', TO),
+         TO = ifelse(Year == 2023 & Reservoir == 'BVR' & Date < as.Date('2023-11-02'), 'Pre', TO),
+         TO = ifelse(Year == 2023 & Reservoir == 'FCR' & Date >= as.Date('2023-11-02'), 'Post', TO),
+         TO = ifelse(Year == 2023 & Reservoir == 'BVR' & Date >= as.Date('2023-11-02'), 'Post', TO)) %>% 
+  arrange(Date)
+
+avgCumulFluxes2018_2023 <- avgFluxes2018_2023 %>% 
+  filter(TO == 'Pre' & Layer == 'Hypolimnion') %>%
+  group_by(Reservoir, Layer, Year) %>% 
+  mutate(CumulFe_gm2 = cumsum(AvgTFeFlux_gm2d*Duration_days),
+         CumulMn_gm2 = cumsum(AvgTMnFlux_gm2d*Duration_days),
+         CumulDuration_days = cumsum(Duration_days))
+
+CumulFluxSummary <- avgCumulFluxes2018_2023 %>%
+  group_by(Reservoir, Layer, Year) %>% 
+  summarise(CumulFe_gm2 = max(CumulFe_gm2),
+            CumulMn_gm2 = max(CumulMn_gm2),
+            Duration_days = sum(Duration_days),
+            Date = max(Date)) %>% 
+  mutate(FeFlux = round(CumulFe_gm2/Duration_days, digits = 3),
+         MnFlux = round(CumulMn_gm2/Duration_days, digits = 3))
+
+avgCumulFluxes2018_2023_long <- avgCumulFluxes2018_2023 %>% 
+  select(-c(AvgTFeFlux_gm2d, AvgTMnFlux_gm2d)) %>% 
+  pivot_longer(cols = 8:9, values_to = 'Fluxes_gm2', names_to = 'Metal')
+
+CumulFluxSummary_long <- CumulFluxSummary %>% 
+  pivot_longer(cols = 4:5, values_to = 'Fluxes_gm2', names_to = 'Metal') %>% 
+  mutate(Metal = factor(Metal, levels = c('CumulFe_gm2', 'CumulMn_gm2'),
+                        labels = c('Iron', 'Manganese')))
+```
+
+```{r Figure 6 script, eval=TRUE, include=FALSE}
+CumulFePlot1 <- CumulFluxSummary %>% 
+  ggplot() + theme_bw(base_size = 18) + ggtitle('Iron') + ylab('Fe Flux (g/m2d)') +
+  geom_point(aes(x = Reservoir, y = FeFlux, color = as.factor(Year), shape = as.factor(Year)), size = 3) +
+  #2018
+  geom_segment(x = 'BVR', xend = 'FCR', y = 0.209, yend = 1.196, alpha = 0.5,
+               color = "#F8766D", linetype = 3) +
+  #2019
+  geom_segment(x = 'BVR', xend = 'FCR', y = 0.661, yend = 1.398, alpha = 0.5,
+               color = "#B79F00", linetype = 3) +
+  #2020
+  geom_segment(x = 'BVR', xend = 'FCR', y = 0.276, yend = 1.676, alpha = 0.5,
+               color = "#00BA38", linetype = 3) +
+  #2021
+  geom_segment(x = 'BVR', xend = 'FCR', y = 0.775, yend = 1.776, alpha = 0.5,
+               color = "#00BFC4", linetype = 3) +
+  #2022
+  geom_segment(x = 'BVR', xend = 'FCR', y = 0.867, yend = 1.849, alpha = 0.5,
+               color = "#619CFF", linetype = 3) +
+  #2023
+  geom_segment(x = 'BVR', xend = 'FCR', y = 0.819, yend = 1.017, alpha = 0.5,
+               color = "#F564E3", linetype = 3) +
+  annotate(geom = 'text', x= 1.5, y = 1.8, label = '**', size = 12) +
+  guides(color = guide_legend(title = 'Year'), shape = guide_legend(title = 'Year'))
+
+CumulMnPlot1 <- CumulFluxSummary %>% 
+  ggplot() + theme_bw(base_size = 18) + ggtitle('Manganese') + ylab('Mn Flux (g/m2d)') +
+  geom_point(aes(x = Reservoir, y = MnFlux, color = as.factor(Year), shape = as.factor(Year)), size = 3) +
+  #2018
+  geom_segment(x = 'BVR', xend = 'FCR', y = 0.019, yend = 0.033, alpha = 0.5,
+               color = "#F8766D", linetype = 3) +
+  #2019
+  geom_segment(x = 'BVR', xend = 'FCR', y = 0.011, yend = 0.033, alpha = 0.5,
+               color = "#B79F00", linetype = 3) +
+  #2020
+  geom_segment(x = 'BVR', xend = 'FCR', y = 0.005, yend = 0.021, alpha = 0.5,
+               color = "#00BA38", linetype = 3) +
+  #2021
+  geom_segment(x = 'BVR', xend = 'FCR', y = 0.00712359, yend = 0.01952869, alpha = 0.5,
+               color = "#00BFC4", linetype = 3) +
+  #2022
+  geom_segment(x = 'BVR', xend = 'FCR', y = 0.020, yend = 0.029, alpha = 0.5,
+               color = "#619CFF", linetype = 3) +
+  #2023
+  geom_segment(x = 'BVR', xend = 'FCR', y = 0.014, yend = 0.068, alpha = 0.5,
+               color = "#F564E3", linetype = 3) +
+  annotate(geom = 'text', x= 1.5, y = 0.065, label = '*', size = 12) +
+  guides(color = guide_legend(title = 'Year'), shape = guide_legend(title = 'Year'))
+
+ComboFluxPlot <- ggarrange(CumulFePlot1, CumulMnPlot1, nrow = 1, common.legend = TRUE, legend = 'right')
+```
+
+```{r Figure 6, eval=TRUE, include=TRUE}
+ComboFluxPlot
+```
+
+
+## Cumulative Sed Mass Plot (Figure 7)
+```{r Figure 7 script, eval=TRUE, include=FALSE}
+plot_vline <- read_csv('~/Documents/R Projects/Sed Traps/TO_Dates.csv') %>% 
+  mutate(Date = as.Date(Date),
+         Event = as.factor(Event),
+         Reservoir = as.factor(Reservoir),
+         Layer = 'Hypolimnion')
+
+FCRTO_vline <- plot_vline %>% 
+  filter(Reservoir == 'FCR')
+
+BVRTO_vline <- plot_vline %>% 
+  filter(Reservoir == 'BVR')
+
+strat_vline <- read_csv('StratStart2018_2023.csv') %>% 
+  select(year, start, site_id, method) %>% 
+  rename('Reservoir' = 'site_id',
+         'Year' = 'year',
+         'Date' = 'start') %>% 
+  mutate(Layer = 'Hypolimnion') 
+
+HOxBoxes <- read_csv('HOx_Ranges.csv') %>% 
+  mutate(Group = rownames(.),
+         Layer = 'Hypolimnion',
+         Year = year(HOxOn),
+         DOYon = yday(HOxOn),
+         DOYoff = yday(HOxOff))
+ 
+HypCumulFluxPlot <- avgCumulFluxes2018_2023_long %>% 
+  filter(Layer == 'Hypolimnion') %>%
+  mutate(Metal = factor(Metal, levels = c('CumulFe_gm2', 'CumulMn_gm2'),
+                        labels = c('Iron', 'Manganese'))) %>%
+  ggplot() + theme_bw() + theme(panel.grid = element_blank()) + 
+  facet_grid(cols = vars(Year), rows = vars(Metal), scales = 'free', space = "free_x") +
+  scale_x_date(date_labels = '%b', breaks = '2 months', name = 'Date') +
+  scale_y_continuous(name = 'Cumulative Mass Removal (g/m2)', limits = c(0, NA)) +
+  geom_rect(aes(xmin = HOxOn, xmax = HOxOff, group = Group), ymin = -Inf, ymax = Inf, data = HOxBoxes, alpha = 0.2) + #creates the HOx boxes
+  geom_vline(xintercept = FCRTO_vline$Date, linetype = 1, colour = '#D55E00') +
+  geom_vline(xintercept = BVRTO_vline$Date, linetype = 2, colour = '#56B4E9') +
+  geom_point(aes(as.Date(Date), Fluxes_gm2, colour = Reservoir, shape = Reservoir), size = 2)
+```
+
+```{r Figure 7, eval=TRUE, include=TRUE}
+HypCumulFluxPlot
+```
+
+
+## Fe and Mn Threshold Plot (Figure 8)
+
+```{r Fig 8 & 9 set up, eval=TRUE, include=FALSE}
+metals <- metals_file %>% 
+  filter(metals_file$DateTime >= as.Date('2018-01-01'),
+         Site == 50, Reservoir == 'FCR' | Reservoir == 'BVR') %>% 
+  select(Reservoir, Site, DateTime, Depth_m, TFe_mgL, SFe_mgL, TMn_mgL, SMn_mgL,
+         Flag_TFe_mgL, Flag_TMn_mgL, Flag_SFe_mgL, Flag_SMn_mgL) %>%
+  filter(Flag_TFe_mgL != 8 & Flag_SFe_mgL != 8 & Flag_TFe_mgL != 68 & Flag_SFe_mgL != 68,
+         Flag_TMn_mgL != 8 & Flag_SMn_mgL != 8 & Flag_TMn_mgL != 68 & Flag_SMn_mgL != 68) %>% 
+  mutate(FeDiff = TFe_mgL - SFe_mgL,
+         MnDiff = TMn_mgL - SMn_mgL,
+         STFe = SFe_mgL/TFe_mgL,
+         STMn = SMn_mgL/TMn_mgL,
+         Date = date(DateTime),
+         Layer = NA,
+         Layer = ifelse(Reservoir == 'FCR' & Depth_m <= 4, 'Epilimnion', Layer),
+         Layer = ifelse(Reservoir == 'FCR' & Depth_m >= 4, 'Hypolimnion', Layer),
+         Layer = ifelse(Reservoir == 'BVR' & Depth_m <= 5, 'Epilimnion', Layer),
+         Layer = ifelse(Reservoir == 'BVR' & Depth_m >= 5, 'Hypolimnion', Layer),
+         Year = year(DateTime)) %>% 
+  group_by(Reservoir, Site, Date, Layer) %>% 
+  mutate(AvgSTFe = mean(STFe, na.rm = TRUE),
+         AvgSTMn = mean(STMn, na.rm = TRUE)) %>% 
+  filter(FeDiff >= -0.02,
+         MnDiff >= -0.06)
+
+metals2023 <- metals %>% 
+  filter(Year == 2023,
+         MnDiff > 0)
+
+Mnissues <- metals %>% 
+  filter(Year == 2023,
+         MnDiff < 0) %>% 
+  rename('test1' = 'TMn_mgL',
+         'test2' = 'SMn_mgL') %>% 
+  rename('TMn_mgL' = 'test2',
+         'SMn_mgL' = 'test1') %>% 
+  mutate(MnDiff = TMn_mgL - SMn_mgL)
+
+metals2023 <- rbind(metals2023, Mnissues) %>% 
+  mutate(STFe = SFe_mgL/TFe_mgL,
+         STMn = SMn_mgL/TMn_mgL) %>% 
+  mutate(TO = NA,
+         TO = ifelse(Year == 2023 & Reservoir == 'FCR' & Date < as.Date('2023-11-02'), 'Pre', TO),
+         TO = ifelse(Year == 2023 & Reservoir == 'BVR' & Date < as.Date('2023-11-02'), 'Pre', TO),
+         TO = ifelse(Year == 2023 & Reservoir == 'FCR' & Date >= as.Date('2023-11-02'), 'Post', TO),
+         TO = ifelse(Year == 2023 & Reservoir == 'BVR' & Date >= as.Date('2023-11-02'), 'Post', TO))
+
+
+metals2020 <- metals %>% 
+  filter(Year == 2020,
+         MnDiff > 0)
+
+Mnissues20 <- metals %>% 
+  filter(Year == 2020,
+         MnDiff < 0) %>% 
+  rename('test1' = 'TMn_mgL',
+         'test2' = 'SMn_mgL') %>% 
+  rename('TMn_mgL' = 'test2',
+         'SMn_mgL' = 'test1') %>% 
+  mutate(MnDiff = TMn_mgL - SMn_mgL)
+
+metals2020 <- rbind(metals2020, Mnissues20) %>% 
+  mutate(STFe = SFe_mgL/TFe_mgL,
+         STMn = SMn_mgL/TMn_mgL) %>% 
+  mutate(TO = NA,
+         TO = ifelse(Year == 2020 & Reservoir == 'FCR' & Date < as.Date('2020-11-02'), 'Pre', TO),
+         TO = ifelse(Year == 2020 & Reservoir == 'BVR' & Date < as.Date('2020-11-02'), 'Pre', TO),
+         TO = ifelse(Year == 2020 & Reservoir == 'FCR' & Date >= as.Date('2020-11-02'), 'Post', TO),
+         TO = ifelse(Year == 2020 & Reservoir == 'BVR' & Date >= as.Date('2020-11-02'), 'Post', TO),)
+```
+
+```{r Figure 8 script, eval=TRUE, include=FALSE}
+#first find threshold dates, threshold = 0.3 mg/L for TMn and 0.9 mg/L for TFe
+
+FeMnConcLeadingAvg <- metals %>% 
+  filter(Reservoir == 'FCR' & Depth_m == 9) %>% 
+  group_by(Reservoir, Depth_m, Year) %>%
+  summarise(FeThresh = (lead(TFe_mgL, n = 2, order_by = Date) +
+              lead(TFe_mgL, n = 1, order_by = Date) + TFe_mgL)/3,
+            MnThresh = (lead(TMn_mgL, n = 2, order_by = Date) + 
+              lead(TMn_mgL, n = 1, order_by = Date) + TMn_mgL)/3,
+            Date = Date) %>% 
+  ungroup() %>% 
+  pivot_longer(cols = 4:5, values_to = 'Value', names_to = 'Thresh') %>%
+  filter(Thresh == 'FeThresh' & Value >= 0.9 | Thresh == 'MnThresh' & Value >= 0.3) %>%
+  group_by(Year, Thresh) %>%
+  slice_min(order_by = Date) %>% 
+  ungroup() %>%
+  pivot_wider(names_from = Thresh, values_from = Date) %>%
+  group_by(Reservoir, Depth_m, Year) %>% 
+  summarise(MnThresh = mean(MnThresh, na.rm = TRUE),
+            FeThresh = mean(FeThresh, na.rm = TRUE)) %>% 
+  arrange(Year) 
+
+StratStart <- read_csv('StratStart2018_2023.csv') %>% 
+  select(-c(length, end, method)) %>% 
+  rename('Year' = 'year', 'StratStart' = 'start', 'Reservoir' = 'site_id')
+
+#First HOx activation dates, where HOx was activated for more than 7 days before deactivation, see Table 1 in manuscript
+HOxOn <- HOxBoxes %>%
+  mutate(Duration = HOxOff - HOxOn) %>% 
+  filter(Duration >= 7) %>% 
+  select(Reservoir, Year, HOxOn) %>% 
+  group_by(Reservoir, Year) %>% 
+  slice_min(order_by = HOxOn)
+
+FeMnThresh <- FeMnConcLeadingAvg %>% 
+  full_join(StratStart) %>% 
+  full_join(HOxOn) %>% 
+  mutate(StratHOxDiff = as.numeric(HOxOn - StratStart),
+         DaysToMnThresh = as.numeric(MnThresh - StratStart),
+         DaysToFeThresh = as.numeric(FeThresh - StratStart))
+
+
+MnThreshPlot <- ggplot(FeMnThresh) +
+  theme_bw(base_size = 18) + 
+  scale_y_continuous(limits = c(-15,100)) +
+  scale_x_continuous(limits = c(-20,120), breaks = c(-20, 0, 20, 40, 60, 80, 100, 120)) +
+  geom_vline(xintercept = 0, linewidth = 0.2) + geom_hline(yintercept = 0, linewidth = 0.2) +
+  geom_point(aes(StratHOxDiff, DaysToMnThresh, color = as.factor(Year), shape = as.factor(Year)), size = 5) +
+  guides(color = guide_legend(title = 'Year'), shape = guide_legend(title = 'Year')) +
+  xlab('Time of HOx Activation Relative to Stratification (days)') + ylab('Manganese')
+
+
+FeThreshPlot <- ggplot(FeMnThresh) +
+  theme_bw(base_size = 18) + 
+  scale_y_continuous(limits = c(-15,100)) +
+  scale_x_continuous(limits = c(-20,120), breaks = c(-20, 0, 20, 40, 60, 80, 100, 120)) + xlab(NULL) +
+  geom_vline(xintercept = 0, linewidth = 0.2) + geom_hline(yintercept = 0, linewidth = 0.2) +
+  geom_point(aes(StratHOxDiff, DaysToFeThresh, color = as.factor(Year), shape = as.factor(Year)), size = 5) +
+  guides(color = guide_legend(title = 'Year'), shape = guide_legend(title = 'Year')) + 
+  xlab('') + ylab('Iron')
+
+
+ThreshPlot <- ggarrange(FeThreshPlot, MnThreshPlot, ncol = 1, common.legend = TRUE, legend = 'bottom')
+ThreshPlotFinal <- annotate_figure(ThreshPlot, left = text_grob('Time to Exceed Water Quality Threshold (days)', rot = 90, size = 18, hjust = 0.4))
+```
+
+```{r Figure 8, eval=TRUE, include=TRUE}
+plot(ThreshPlotFinal)
+```
+
+
+
+## 2023 and 2020 Comparison of 9m TFe, SFe, TMn, SMn in FCR (Figure 9)
+
+```{r Fig 9 script, eval=TRUE, include=FALSE}
+Fe23 <- metals2023 %>% 
+  select(Reservoir, Date, Site, Layer, Year, Depth_m, TFe_mgL, SFe_mgL, TO) %>%
+  rename('Total' = 'TFe_mgL', 'Soluble' = 'SFe_mgL') %>% 
+  pivot_longer(cols = 7:8, names_to = 'Type', values_to = 'Fe_mgL') %>% 
+  filter(Layer == 'Hypolimnion')
+
+Mn23 <- metals2023 %>% 
+  select(Reservoir, Date, Site, Layer, Year, Depth_m, TMn_mgL, SMn_mgL, TO) %>%
+  rename('Total' = 'TMn_mgL', 'Soluble' = 'SMn_mgL') %>% 
+  pivot_longer(cols = 7:8, names_to = 'Type', values_to = 'Mn_mgL') %>% 
+  filter(Layer == 'Hypolimnion') %>% 
+  mutate(Type = factor(Type, levels = c('Soluble', 'Total')))
+
+Fe20 <- metals2020 %>% 
+  select(Reservoir, Date, Site, Layer, Year, Depth_m, TFe_mgL, SFe_mgL, TO) %>%
+  rename('Total' = 'TFe_mgL', 'Soluble' = 'SFe_mgL') %>% 
+  pivot_longer(cols = 7:8, names_to = 'Type', values_to = 'Fe_mgL') %>% 
+  filter(Layer == 'Hypolimnion')
+
+Mn20 <- metals2020 %>% 
+  select(Reservoir, Date, Site, Layer, Year, Depth_m, TMn_mgL, SMn_mgL, TO) %>%
+  rename('Total' = 'TMn_mgL', 'Soluble' = 'SMn_mgL') %>% 
+  pivot_longer(cols = 7:8, names_to = 'Type', values_to = 'Mn_mgL') %>% 
+  filter(Layer == 'Hypolimnion')
+
+Mn23Reg <- Mn23 %>% 
+  filter(Type == 'Total' & Reservoir == 'FCR' & Depth_m == 9 & TO == 'Pre' & Date >= as.Date('2023-03-23'))
+
+Mn20Reg <- Mn20 %>% 
+  filter(Type == 'Total' & Reservoir == 'FCR' & Depth_m == 9 & TO == 'Pre' & Date >= as.Date('2020-03-11'))
+
+
+
+HOx2023 <- HOxBoxes %>% 
+  filter(Year == 2023)
+
+HOx2020 <- HOxBoxes %>% 
+  filter(Year == 2020)
+
+#Linear regression lines for release from sediment
+Coef20 <- coef(lm(Mn20Reg$Mn_mgL ~ Mn20Reg$Date))[2]
+Int20 <- coef(lm(Mn20Reg$Mn_mgL ~ Mn20Reg$Date))[1]
+
+Coef23 <- coef(lm(Mn23Reg$Mn_mgL ~ Mn23Reg$Date))[2]
+Int23 <- coef(lm(Mn23Reg$Mn_mgL ~ Mn23Reg$Date))[1]
+
+Mod20 <- lm(Mn20Reg$Mn_mgL ~ Mn20Reg$Date)
+summary(Mod20)
+Mod23 <- lm(Mn23Reg$Mn_mgL ~ Mn23Reg$Date)
+summary(Mod23)
+
+
+#plots for Figure 9
+STFe1 <- Fe20 %>% 
+  filter(Layer == 'Hypolimnion' & Depth_m == 9 & Reservoir == 'FCR', Year == 2020) %>% 
+ggplot() + 
+  theme_bw(base_size = 18) + theme(panel.grid = element_blank(), legend.title = element_blank()) + 
+  scale_x_date(date_labels = '%b', breaks = '2 months') + 
+  scale_y_continuous(limits = c(0,10.5), name = 'Fe (mg/L)') + 
+  geom_rect(aes(xmin = HOxOn, xmax = HOxOff, group = Group), ymin = -Inf, ymax = Inf, data = HOx2020, alpha = 0.2) +
+  geom_vline(xintercept = as.Date('2020-11-02'), alpha = 0.75, linetype = 2) +
+  geom_line(aes(as.Date(Date), Fe_mgL, color = as.factor(Type))) + 
+  geom_point(aes(Date, Fe_mgL, shape = as.factor(Type), color = as.factor(Type)), size = 2) +
+  ggtitle('2020') + #plot title
+  theme(plot.title = element_text(hjust = 0.5)) + #centers title
+  xlab(NULL)
+
+STMn1 <- Mn20 %>% 
+  filter(Layer == 'Hypolimnion' & Depth_m == 9 & Reservoir == 'FCR', Year == 2020) %>% 
+  ggplot() + 
+  theme_bw(base_size = 18) + theme(panel.grid = element_blank(), legend.title = element_blank()) + 
+  scale_x_date(date_labels = '%b', breaks = '2 months') + 
+  scale_y_continuous(limits = c(0,2.2), name = 'Mn (mg/L)') + 
+  geom_rect(aes(xmin = HOxOn, xmax = HOxOff, group = Group), ymin = -Inf, ymax = Inf, data = HOx2020, alpha = 0.2) +
+  geom_vline(xintercept = as.Date('2020-11-02'), alpha = 0.75, linetype = 2) +
+  geom_line(aes(as.Date(Date), Mn_mgL, color = as.factor(Type))) +
+  geom_smooth(aes(as.Date(Date), Mn_mgL), color = 'black', method = 'lm', formula = 'y~x', se = FALSE, data = Mn20Reg) +
+  geom_point(aes(Date, Mn_mgL, shape = as.factor(Type), color = as.factor(Type)), size = 2) + xlab('Date') + geom_label(aes(x = as.Date('2020-04-20'), y = 2, label = 'Slope = 0.006 mg/Ld'))
+
+STFe2 <- Fe23 %>% 
+  filter(Layer == 'Hypolimnion' & Depth_m == 9 & Reservoir == 'FCR', Year == 2023) %>% 
+  ggplot() + theme_bw(base_size = 18) + theme(panel.grid = element_blank(), legend.title = element_blank()) + scale_x_date(date_labels = '%b', breaks = '2 months') + 
+  scale_y_continuous(limits = c(0,10.5), name = NULL) + 
+  geom_rect(aes(xmin = HOxOn, xmax = HOxOff, group = Group), ymin = -Inf, ymax = Inf, data = HOx2023, alpha = 0.2) +
+  geom_vline(xintercept = as.Date('2023-11-02'), alpha = 0.75, linetype = 2) +
+  geom_line(aes(as.Date(Date), Fe_mgL, color = as.factor(Type))) + 
+  geom_point(aes(Date, Fe_mgL, shape = as.factor(Type), color = as.factor(Type)), size = 2) +
+  ggtitle('2023') + #plot title
+  theme(plot.title = element_text(hjust = 0.5)) + #centers title
+  xlab(NULL)
+
+STMn2 <- Mn23 %>% 
+  filter(Layer == 'Hypolimnion' & Depth_m == 9 & Reservoir == 'FCR', Year == 2023) %>% 
+  ggplot() + theme_bw(base_size = 18) + theme(panel.grid = element_blank(), legend.title = element_blank()) + scale_x_date(date_labels = '%b', breaks = '2 months') + 
+  scale_y_continuous(limits = c(0,2.2), name = NULL) + 
+  geom_rect(aes(xmin = HOxOn, xmax = HOxOff, group = Group), ymin = -Inf, ymax = Inf, data = HOx2023, alpha = 0.2) +
+  geom_vline(xintercept = as.Date('2023-11-02'), alpha = 0.75, linetype = 2) +
+  geom_smooth(aes(as.Date(Date), Mn_mgL), color = 'black',
+              method = 'lm', formula = 'y~x', se = FALSE, data = Mn23Reg) +
+  geom_line(aes(as.Date(Date), Mn_mgL, color = as.factor(Type))) + 
+  geom_point(aes(Date, Mn_mgL, shape = as.factor(Type), color = as.factor(Type)), size = 2) + xlab('Date') + geom_label(aes(x = as.Date('2023-04-20'), y = 2, label = 'Slope = 0.008 mg/Ld'))
+
+comboPlot1 <- ggarrange(STFe1, STFe2, STMn1, STMn2, ncol = 2, nrow = 2, common.legend = TRUE, legend = 'bottom')
+```
+
+```{r Figure 9, eval=TRUE, include=TRUE}
+comboPlot1
+```
+
+
+
+## Flux Plot (Figure S1)
+
+```{r Flux Plot Figure S1 script, eval=TRUE, include=FALSE}
+avgFluxes2018_2023_long <-  avgFluxes2018_2023 %>% 
+  pivot_longer(cols = c(7:8), values_to = 'Fluxes_gm2d', names_to = 'Metal')
+
+
+FluxPlot <- avgFluxes2018_2023_long %>% 
+  filter(Layer == 'Hypolimnion') %>% 
+  mutate(Metal = factor(Metal, levels = c('AvgTFeFlux_gm2d', 'AvgTMnFlux_gm2d'),
+                        labels = c('Iron', 'Manganese'))) %>% 
+  ggplot() + theme_bw() + theme(panel.grid = element_blank()) + 
+  facet_grid(cols = vars(Year), rows = vars(Metal), scales = 'free', space = "free_x") +
+  scale_x_date(date_labels = '%b', breaks = '2 months') +
+  scale_y_continuous(name = 'Sedimentation Fluxes (g/m2d)') +
+  geom_rect(aes(xmin = HOxOn, xmax = HOxOff, group = Group), ymin = -Inf, ymax = Inf, data = HOxBoxes, alpha = 0.2) +
+  geom_vline(xintercept = FCRTO_vline$Date, linetype = 1, colour = '#D55E00') +
+  geom_vline(xintercept = BVRTO_vline$Date, linetype = 2, colour = '#56B4E9') +
+  geom_line(aes(as.Date(Date), Fluxes_gm2d, colour = Reservoir)) +
+  geom_point(aes(as.Date(Date), Fluxes_gm2d, colour = Reservoir, shape = Reservoir)) + xlab('Date')
+```
+
+```{r Figure S1, eval=TRUE, include=TRUE}
+FluxPlot
+```
+
+## DO plot (Figure S3)
+
+```{r DO plot Figure S3 script, eval=TRUE, include=FALSE}
+#DO Plot
+ 
+DO1 <- FCRDO %>%
+  mutate(DateTime = as.POSIXct(DateTime, format = "%Y-%m-%d %H:%M:%S")) %>% 
+  select(Reservoir, Site, DateTime, RDO_mgL_9_adjusted) %>% 
+  mutate(Date = date(DateTime)) %>% 
+  group_by(Reservoir, Site, Date) %>% 
+  summarise(DO_mgL_9m = mean(RDO_mgL_9_adjusted, na.rm = TRUE)) %>% 
+  mutate(across(c('DO_mgL_9m'), ~ifelse(is.nan(.), NA, .)),
+         Year = year(Date)) %>% 
+  pivot_longer(cols = 4, names_to = 'Depth_m', values_to = 'DO_mgL') %>%
+  mutate(Depth_m = factor(Depth_m, levels = c('DO_mgL_9m'),
+                          labels = c('9'))) %>% 
+  drop_na()
+
+DO2 <- BVRDO1 %>% 
+  select(Reservoir, Site, DateTime, RDO_mgL_13) %>% 
+  mutate(Date = date(DateTime)) %>% 
+  group_by(Reservoir, Site, Date) %>% 
+  summarise(DO_mgL_13m = mean(RDO_mgL_13, na.rm = TRUE)) %>% 
+  mutate(across(c('DO_mgL_13m'), ~ifelse(is.nan(.), NA, .)),
+         Year = year(Date)) %>% 
+  pivot_longer(cols = 4, names_to = 'Depth_m', values_to = 'DO_mgL') %>%
+  mutate(Depth_m = factor(Depth_m, levels = c('DO_mgL_13m'),
+                          labels = c('13'))) %>% 
+  drop_na()
+         
+DO3 <- BVRDO2 %>% 
+  filter(DateTime >= as.Date('2018-01-01')) %>% 
+  select(Reservoir, Site, DateTime, MiniDotDO_mgL_10) %>% 
+  mutate(Date = date(DateTime)) %>% 
+  group_by(Reservoir, Site, Date) %>% 
+  summarise(DO_mgL_10m = mean(MiniDotDO_mgL_10, na.rm = TRUE)) %>% 
+  mutate(across(c('DO_mgL_10m'), ~ifelse(is.nan(.), NA, .)),
+         Year = year(Date)) %>% 
+  pivot_longer(cols = 4, names_to = 'Depth_m', values_to = 'DO_mgL') %>%
+  mutate(Depth_m = factor(Depth_m, levels = c('DO_mgL_10m'),
+                          labels = c('10')))
+         
+DO <- DO1 %>% 
+  full_join(DO2) %>% 
+  full_join(DO3) %>% 
+  filter(Date <= as.Date('2023-12-31')) %>% 
+  arrange(Date)
+
+DO_plot1 <- DO %>% 
+  ggplot() +
+  scale_x_date(name = '', date_breaks = '1 year', date_labels = '%Y') +
+  theme_bw(base_size = 18) + theme(panel.grid = element_blank()) +
+  geom_path(aes(x = Date, y = DO_mgL, color = Reservoir)) + 
+  ylab('Dissolved Oxygen (mg/L)')
+```
+
+```{r Figure S3, eval=TRUE, include=TRUE}
+DO_plot1
+```
+
+## DO on HOx Activation Day Plot (Figure S4)
+```{r DO plot figure S4 script, eval=TRUE, include=FALSE}
+DOps1 <- FCRDO %>%
+  select(Reservoir, Site, DateTime, RDOsat_percent_9_adjusted) %>% 
+  mutate(Date = date(DateTime)) %>%
+  group_by(Reservoir, Site, Date) %>% 
+  summarise(AvgDOsat_percent_9 = mean(RDOsat_percent_9_adjusted, na.rm = TRUE)) %>% 
+  ungroup() %>% #now select first HOx activation dates
+  filter(Date == as.Date('2018-04-23') | Date == as.Date('2019-06-03') | 
+           Date == as.Date('2020-06-29') | Date == as.Date('2021-06-11') |
+           Date == as.Date('2022-05-19') | Date == as.Date('2023-03-06')) %>% 
+  mutate(Year = year(Date))
+  
+
+DO_CumulMetalMass <- CumulFluxSummary %>%
+  ungroup() %>% 
+  filter(Reservoir == 'FCR',
+         Year >= 2019) %>% 
+  select(Reservoir, Year, FeFlux, MnFlux) %>% 
+  full_join(DOps1)
+
+DO_CumulMetal_Feplot <- DO_CumulMetalMass %>% 
+  ggplot() + theme_bw(base_size = 18) +
+  geom_point(aes(x = AvgDOsat_percent_9, y = FeFlux, color = as.factor(Year),
+                 shape = as.factor(Year)), size = 3) +
+  ylab('Seasonal Flux (g/m2d)') + xlab('') +
+  guides(color = guide_legend(title = 'Year'), shape = guide_legend(title = 'Year')) +
+  ggtitle('Iron')
+
+DO_CumulMetal_Mnplot <- DO_CumulMetalMass %>% 
+  ggplot() + theme_bw(base_size = 18) +
+  geom_point(aes(x = AvgDOsat_percent_9, y = MnFlux, color = as.factor(Year),
+                 shape = as.factor(Year)), size = 3) +
+  ylab('') + xlab('') +
+  guides(color = guide_legend(title = 'Year'), shape = guide_legend(title = 'Year')) +
+  ggtitle('Manganese')
+
+DO_CumulMetal_plot1 <- ggarrange(DO_CumulMetal_Feplot, DO_CumulMetal_Mnplot, nrow = 1,
+                                common.legend = TRUE, legend = 'right', 
+                                labels = c('A', 'B'))
+DO_CumulMetal_plotFinal <- annotate_figure(DO_CumulMetal_plot1, bottom = text_grob('Dissolved Oxygen at HOx Activation (% saturation)', size = 18, hjust = 0.53, vjust = -1))
+```
+
+```{r Figure S4, eval=TRUE, include=TRUE}
+DO_CumulMetal_plotFinal
+```
+
+
+
+## Tables
+```{r Tables script, eval=TRUE, include=FALSE}
+AvgFluxSummary2018_2023 <- avgFluxes2018_2023 %>% 
+  filter(TO == 'Pre') %>% 
+  group_by(Reservoir, Layer) %>% 
+  summarise(MeanFeFlux = round(mean(AvgTFeFlux_gm2d, na.rm = T), digits = 3),
+            MeanMnFlux = round(mean(AvgTMnFlux_gm2d, na.rm = T), digits = 3),
+            MedianFeFlux = round(median(AvgTFeFlux_gm2d, na.rm = T), digits = 3),
+            MedianMnFlux = round(median(AvgTMnFlux_gm2d, na.rm = T), digits = 3),
+            MinFeFlux = round(min(AvgTFeFlux_gm2d, na.rm = T), digits = 3),
+            MaxFeFlux = round(max(AvgTFeFlux_gm2d, na.rm = T), digits = 3),
+            MinMnFlux = round(min(AvgTMnFlux_gm2d, na.rm = T), digits = 3),
+            MaxMnFlux = round(max(AvgTMnFlux_gm2d, na.rm = T), digits = 3)) %>% 
+  ungroup()
+
+
+
+metals_HOx <- metals %>%
+  filter(Reservoir == 'FCR' & Layer == 'Hypolimnion') %>% 
+  mutate(HOx = 'Off',
+         HOx = if_else(Year == 2018 & 
+                         between(Date, as.Date('2018-04-23'), as.Date('2018-07-30')), 'On', HOx),
+         HOx = if_else(Year == 2018 & 
+                         between(Date, as.Date('2018-08-09'), as.Date('2018-09-10')), 'On', HOx),
+         HOx = if_else(Year == 2019 & 
+                         between(Date, as.Date('2019-06-03'), as.Date('2019-06-17')), 'On', HOx),
+         HOx = if_else(Year == 2019 & 
+                         between(Date, as.Date('2019-07-08'), as.Date('2019-07-19')), 'On', HOx),
+         HOx = if_else(Year == 2019 & 
+                         between(Date, as.Date('2019-08-05'), as.Date('2019-08-19')), 'On', HOx),
+         HOx = if_else(Year == 2019 & 
+                         between(Date, as.Date('2019-09-02'), as.Date('2019-12-01')), 'On', HOx),
+         HOx = if_else(Year == 2020 & 
+                         between(Date, as.Date('2020-06-29'), as.Date('2020-07-12')), 'On', HOx),
+         HOx = if_else(Year == 2020 & 
+                         between(Date, as.Date('2020-07-13'), as.Date('2020-07-22')), 'On', HOx),
+         HOx = if_else(Year == 2020 & 
+                         between(Date, as.Date('2020-07-23'), as.Date('2020-09-11')), 'On', HOx),
+         HOx = if_else(Year == 2020 & 
+                         between(Date, as.Date('2020-09-25'), as.Date('2020-12-02')), 'On', HOx),
+         HOx = if_else(Year == 2021 & 
+                         between(Date, as.Date('2021-06-11'), as.Date('2021-06-26')), 'On', HOx),
+         HOx = if_else(Year == 2021 & 
+                         between(Date, as.Date('2021-06-30'), as.Date('2021-07-08')), 'On', HOx),
+         HOx = if_else(Year == 2021 & 
+                         between(Date, as.Date('2021-07-12'), as.Date('2021-07-14')), 'On', HOx),
+         HOx = if_else(Year == 2021 & 
+                         between(Date, as.Date('2021-07-26'), as.Date('2021-09-06')), 'On', HOx),
+         HOx = if_else(Year == 2021 & 
+                         between(Date, as.Date('2021-09-14'), as.Date('2021-12-06')), 'On', HOx),
+         HOx = if_else(Year == 2022 & 
+                         between(Date, as.Date('2022-03-22'), as.Date('2022-03-24')), 'On', HOx),
+         HOx = if_else(Year == 2022 & 
+                         between(Date, as.Date('2022-03-29'), as.Date('2022-04-03')), 'On', HOx),
+         HOx = if_else(Year == 2022 & 
+                         between(Date, as.Date('2022-03-22'), as.Date('2022-03-24')), 'On', HOx),
+         HOx = if_else(Year == 2022 & 
+                         between(Date, as.Date('2022-05-19'), as.Date('2022-06-14')), 'On', HOx),
+         HOx = if_else(Year == 2022 & 
+                         between(Date, as.Date('2022-06-21'), as.Date('2022-08-26')), 'On', HOx),
+         HOx = if_else(Year == 2022 & 
+                         between(Date, as.Date('2022-08-29'), as.Date('2022-10-01')), 'On', HOx),
+         HOx = if_else(Year == 2022 & 
+                         between(Date, as.Date('2022-10-03'), as.Date('2022-12-12')), 'On', HOx),
+         HOx = if_else(Year == 2023 & 
+                         between(Date, as.Date('2023-03-06'), as.Date('2023-12-04')), 'On', HOx)) %>% 
+  group_by(Reservoir, Layer, HOx) %>% 
+  summarise(AvgSTFe = round(mean(SFe_mgL/TFe_mgL, na.rm = TRUE), digits = 3),
+            AvgSTMn = round(mean(SMn_mgL/TMn_mgL, na.rm = TRUE), digits = 3)) %>% 
+  ungroup()
+```
+
+```{r Tables, eval=TRUE, include=TRUE}
+gt(AvgFluxSummary2018_2023)
+gt(metals_HOx)
+```
+
+```{r Save all figures to folder if desired, eval=FALSE}
+#Figure 6
+ggsave(plot = ComboFluxPlot, filename = 'CumulHypFlux_tTest_2018-2023.png', path = myFilePath, height = 4, width = 8, units = 'in')
+#Figure 7
+ggsave(plot = HypCumulFluxPlot, filename = 'CumulHypFlux_HOxBoxes_2018-2023.png', path = myFilePath, height = 4, width = 8, units = 'in')
+#Figure 8
+ggsave(ThreshPlotFinal, file = 'HOxTimingFeMn.png', path = myFilePath, height = 8, width = 8, units = 'in')
+#Figure 9
+ggsave(comboPlot1, file = 'STFeMn_2020_2023.png', path = myFilePath, height = 6, width = 8, units = 'in')
+#Figure S1
+ggsave(plot = FluxPlot, filename = 'Flux_HOxBoxes_2018-2023.png', path = myFilePath, height = 4, width = 8, units = 'in')
+#Figure S3
+ggsave(DO_plot1, file = 'HypolimnionDO_2018_2023.png', path = myFilePath, height = 4, 
+       width = 6, units = 'in')
+#Figure S4
+ggsave(DO_CumulMetal_plotFinal, file = 'DOps_SeasonalFlux.png', path = myFilePath,
+       height = 4, width = 8, units = 'in')
+```
+
