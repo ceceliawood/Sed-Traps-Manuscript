@@ -1,9 +1,11 @@
 ---
-title: "Cece Sed Traps Manuscript Heat Map"
+title: "Manuscript Heat Map Script"
 author: "Adrienne Breef-Pilz"
 date: "2024-10-18"
 output: html_document
 ---
+
+Includes script for making Figures 2-5 and S2. Script written by ABP and updated by CEW. Edits include code chunks written by CEB.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -19,7 +21,6 @@ source("https://raw.githubusercontent.com/CareyLabVT/Reservoirs/master/Data/Data
                    
  EDI_CTD <-
   read_csv("https://pasta.lternet.edu/package/data/eml/edi/200/14/0432a298a90b2b662f26c46071f66b8a")%>%
-  #read_csv("./../../Raw_CTD/ctd_L1.csv")|>
    filter(DateTime>ymd_hms("2018-01-01 00:00:00") & DateTime<ymd_hms("2023-12-31 00:00:00"))%>%
    filter(Reservoir=="BVR"|Reservoir=="FCR")%>%
    filter(Site==50)%>%
@@ -42,8 +43,6 @@ CTD_casts <- EDI_CTD |>
 
 
 ```{r Turnover}
-
-### Still working on this
 
 source("https://raw.githubusercontent.com/LTREB-reservoirs/vera4cast/refs/heads/main/targets/target_functions/target_generation_mixed_binary_daily.R")
 
@@ -295,83 +294,10 @@ make_heat_map(
 
 ```
 
-```{r Need to add in handhelp pH obs}
-
-ph <- read_csv("https://pasta.lternet.edu/package/data/eml/edi/198/12/e0181372c6d4cbc66eca4644f8385470" )|>
-  #read_csv("./../../../DataAlreadyUploadedToEDI/EDIProductionFiles/MakeEMLYSI_PAR_secchi/2023/YSI_PAR_profiles_2013_2023.csv")|>
-  filter(DateTime>as.Date("2018-01-01"))|>
-  filter(Reservoir=="BVR"|Reservoir=="FCR")|>
-   filter(Site==50)|>
-  select(Reservoir, DateTime, Depth_m, pH)|>
-  drop_na(pH)|>
-  mutate(Year=year(DateTime))
-
-# bind with the CTD 
-
-EDI_CTD_ph <- dplyr::bind_rows(EDI_CTD,ph)
 
 
-CTD_casts_ph <- ph|>
-  select(Reservoir, DateTime, Year)|>
-  mutate(DateTime = as.Date(DateTime))|>
-  unique()%>%
-  dplyr::bind_rows(. , CTD_casts)
 
-# GEt the month and date for easier graphing. This is not the correct date.   
-  CTD_casts_ph$MDay <- format(CTD_casts_ph$DateTime,"%m-%d")
-  CTD_casts_ph$MDay <- as.Date(CTD_casts_ph$MDay, "%m-%d")
-```
-
-```{r Make pH plot}
-
-##Need to fix this
-
- EDI_CTD_pH <- EDI_CTD|>
-   select(Reservoir, DateTime, Year, Depth_m, pH)%>%
-  bind_rows(.,ph)
-
-wer <- data.frame(
-  data= c(rep("EDI_CTD_pH",12)),
-  var = c(rep("pH",12)),
-  Res = c(rep("FCR",6), rep("BVR",6)),
-  Years = c(rep(2018:2023,2))
-)
-
-
-system.time(sd <- wer%>%
-             pmap(heat_interp))
-
-#Bind all the QAQC files from above
-   temp_df <- dplyr::bind_rows(sd)
-
-
-  temp_df <- temp_df%>%
-    filter(!is.na(Reservoir),
-           y>0.1)
-  
-  
-  
-# GEt the month and date for easier graphing. This is not the correct date.   
-  temp_df$MDay <- format(temp_df$Date,"%m-%d")
-temp_df$MDay <- as.Date(temp_df$MDay, "%m-%d")
-
-
-# make the plot
-
-make_heat_map(
-  data= temp_df,
-  sample_dates = CTD_casts_ph,
-  turnovers = turnover,
-  y_lim = c(5,10),
-  custom_heatmap_palette = blue2green2red(60),
-  y_units = "pH",
-  output_file = "figures/SedTraps_CTD_pH_2018_2023.jpeg"
-)
-
-```
-
-
-```{r metals plotting}
+```{r metals plotting script}
 
 
 make_metals_heat_map <- function(
@@ -414,14 +340,6 @@ water_temp <- data%>%
         legend.position = 'bottom',
         panel.grid = element_blank())
   theme_bw(base_size = 18)
-  # labs(color = "")+
-  # geom_point(data = sensor_depth_plot, 
-  #            aes(x = Date, y = Sensor_depth), 
-  #            shape = 23, fill = "black", color = "white", size  =2.5)+
-  # geom_vline(data=lines,aes(xintercept = Dates), show.legend = F)+
-  # scale_linetype_manual(values = c("solid","84"),
-  #                       limits = c("Thermocline","Outtake pipe"),  
-  #                       name= NULL)+
   
 return(water_temp)
 dev.off()
@@ -430,7 +348,7 @@ dev.off()
 ```
 
 
-```{r}
+```{r read in metals data}
 metals <- read_csv("https://pasta.lternet.edu/package/data/eml/edi/455/8/9c8c61b003923f4f03ebfe55cea8bbfd")
 
 # filter the data to the time you want. Right now this is just for 2021.
@@ -660,4 +578,144 @@ FePlot <- ggarrange(p3, p4, ncol = 1, labels = c('A', 'B'), common.legend = TRUE
                     legend = 'bottom')
 FePlot
 ggsave(FePlot, filename = "figures/SedTraps_Fe_2018_2023.png", height = 6, width = 8, units = 'in')
+```
+
+## Soluble:Total Metal Heat Maps (Figure S2)
+
+```{r S:T metals plotting}
+
+
+make_metals_ratio_heat_map <- function(
+    data,
+    sample_dates,
+    turnovers, 
+    y_lim,
+    custom_heatmap_palette,
+    y_units){
+
+#Heatmap
+  
+# change the plots dimensions  
+#jpeg(paste0(output_file),width = 8, height = 4, units = "in", res = 400)
+water_temp <- data%>%
+  mutate(x = as.Date(x, origin = "1970-01-01"),
+         Year = year(x))%>%
+  filter(!is.na(z))%>%
+  ggplot()+
+  geom_raster(aes(x=MDay, y=y,fill = z))+
+  geom_point(data = sample_dates, aes(x = MDay, y = 0.1, z = NULL), pch = '|', size = 2, color = "gray60") + #to mark cast dates 
+   geom_vline(data= turnovers, aes(xintercept=MDay) , linetype="solid", color="gray60", linewidth=0.5) +
+  labs(y = "Depth (m)") +
+  scale_x_date(expand = c(0,0)) +
+  scale_y_reverse(expand = c(0,0),
+                  breaks = c(0.0, 2.5, 5.0, 7.5)) +
+  #scale_y_continuous(expand = c(0,0))+
+  theme(panel.border = element_rect(fill = NA),
+        axis.title.x=element_blank()) +
+  scale_fill_gradientn(name = y_units,
+                       limits = y_lim,
+                       colours = custom_heatmap_palette)+
+  facet_grid(rows= vars(Reservoir),cols = vars(Year),
+             scales = "free_y",
+             space = "free"
+             )+
+  theme(panel.background = element_rect(fill = "white"),
+          panel.spacing = unit(0.05, "lines"),
+        legend.position = 'bottom',
+        panel.grid = element_blank())
+  theme_bw(base_size = 18)
+  
+return(water_temp)
+dev.off()
+
+}
+```
+
+```{r Make S:T Fe plot}
+wer <- data.frame(
+  data= c(rep("metratio",12)),
+  var = c(rep("Fe_ratio",12)),
+  Res = c(rep("FCR",6), rep("BVR",6)),
+  Years = c(rep(2018:2023,2))
+)
+
+system.time(sd <- wer%>%
+             pmap(heat_interp))
+
+#Bind all the QAQC files from above
+   temp_df <- dplyr::bind_rows(sd)
+
+
+  temp_df <- temp_df%>%
+    filter(!is.na(Reservoir),
+           y>0.1)
+  
+  
+  
+# GEt the month and date for easier graphing. This is not the correct date.   
+temp_df$MDay <- format(temp_df$Date,"%m-%d")
+temp_df$MDay <- as.Date(temp_df$MDay, "%m-%d")
+
+
+# make the plot
+
+p5 <- make_metals_ratio_heat_map(
+  data= temp_df,
+  sample_dates = metDates,
+  turnovers = turnover, 
+  y_lim = c(0,1),
+  custom_heatmap_palette = blue2red(60),
+  y_units = "Soluble:Total"
+) + ggtitle('Iron')
+
+```
+
+
+```{r Make S:T Mn plot}
+wer <- data.frame(
+  data= c(rep("metratio",12)),
+  var = c(rep("Mn_ratio",12)),
+  Res = c(rep("FCR",6), rep("BVR",6)),
+  Years = c(rep(2018:2023,2))
+)
+
+system.time(sd <- wer%>%
+             pmap(heat_interp))
+
+#Bind all the QAQC files from above
+   temp_df <- dplyr::bind_rows(sd)
+
+
+  temp_df <- temp_df%>%
+    filter(!is.na(Reservoir),
+           y>0.1)
+  
+  
+  
+# GEt the month and date for easier graphing. This is not the correct date.   
+temp_df$MDay <- format(temp_df$Date,"%m-%d")
+temp_df$MDay <- as.Date(temp_df$MDay, "%m-%d")
+
+
+# make the plot
+
+p6 <- make_metals_ratio_heat_map(
+  data= temp_df,
+  sample_dates = metDates,
+  turnovers = turnover, 
+  y_lim = c(0,1),
+  custom_heatmap_palette = blue2red(60),
+  y_units = "Soluble:Total"
+) + ggtitle('Manganese')
+
+```
+
+
+
+
+```{r}
+STPlot <- ggarrange(p5, p6, ncol = 1, labels = c('A', 'B'), common.legend = TRUE,
+                    legend = 'bottom')
+STPlot
+ggsave(STPlot, filename = "figures/SedTraps_STRatio_2018_2023.png", height = 6, width = 8, units = 'in')
 ```
