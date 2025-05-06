@@ -174,15 +174,17 @@ avgFluxes2018_2023 <- fluxes2018_2023 %>%
   mutate(TO = NA,
          #2018, only include data points from FCR that match data points from BVR
          TO = if_else(Reservoir == 'FCR' & Layer == 'Epilimnion' 
-                      & Date < as.Date('2018-09-03'), 'Pre_', TO),
+                      & Date < as.Date('2018-09-02'), 'Pre_', TO),
          TO = if_else(Reservoir == 'FCR' & Layer == 'Hypolimnion' 
-                      & Date < as.Date('2018-07-23'), 'Pre_', TO),
+                      & Date < as.Date('2018-07-22'), 'Pre_', TO),
          TO = if_else(Reservoir == 'FCR' & Layer == 'Epilimnion' 
-                      & between(Date, as.Date('2018-09-03'), as.Date('2018-10-21')), 'Pre', TO),
+                      & between(Date, as.Date('2018-09-02'), as.Date('2018-10-21')), 'Pre', TO),
          TO = if_else(Reservoir == 'FCR' & Layer == 'Hypolimnion' 
-                      & between(Date, as.Date('2018-07-23'), as.Date('2018-10-21')), 'Pre', TO),
-         TO = if_else(Year == 2018 & Reservoir == 'BVR' 
-                      & Date <= as.Date('2018-09-07'), 'Pre', TO),
+                      & between(Date, as.Date('2018-07-22'), as.Date('2018-10-21')), 'Pre', TO),
+         TO = if_else(Year == 2018 & Reservoir == 'BVR' & Layer == 'Epilimnion' 
+                      & between(Date, as.Date('2018-09-06'), as.Date('2018-10-21')), 'Pre', TO),
+         TO = if_else(Year == 2018 & Reservoir == 'BVR' & Layer == 'Hypolimnion' 
+                      & between(Date, as.Date('2018-08-01'), as.Date('2018-10-21')), 'Pre', TO),
          TO = if_else(Year == 2018 & Reservoir == 'FCR' 
                       & Date >= as.Date('2018-10-21'), 'Post', TO),
          TO = if_else(Year == 2018 & Reservoir == 'BVR' 
@@ -574,14 +576,12 @@ DO3 <- BVRDO2 %>%
 
 DO4 <- Handhelds %>% 
   mutate(Date = date(DateTime),
-         Year = year(DateTime)) %>% #HOx activated on 2018-04-23 @ noon
+         Year = year(DateTime)) %>%
   filter(Year == 2018| Year == 2019 | Year == 2020,
          Reservoir == 'BVR' & Depth_m == 10 & 
            between(Date, as.Date('2018-05-04'), as.Date('2018-12-05'))|
            Reservoir == 'BVR' & Depth_m == 10 & 
            between(Date, as.Date('2019-05-18'), as.Date('2020-03-14'))|
-           Reservoir == 'BVR' & Depth_m == 10 & 
-           between(Date, as.Date('2020-05-16'), as.Date('2020-06-17'))|
            Reservoir == 'FCR' & Depth_m == 9 & Date < as.Date('2018-08-19')) %>% 
   select(Reservoir, Site, Date, Year, Depth_m, DO_mgL) %>% 
   mutate(Depth_m = factor(Depth_m),
@@ -592,47 +592,23 @@ DO4 <- Handhelds %>%
 DO <- DO1 %>% 
   full_join(DO2) %>% 
   full_join(DO3) %>%
-  full_join(DO4) %>% 
-  filter(Date <= as.Date('2023-12-31')) %>%
-  mutate(Method = factor(Method, levels = c('edi.271.9', 'edi.725.5', 'edi.198.13'))) %>%
-  ungroup() %>% 
-  #add_row(Reservoir = 'BVR', Site = 50, Date = as.Date('2018-11-17'),
-  #        Year = 2018, Depth_m = as.factor(10), DO_mgL = NA, 
-  #        Method = as.factor('edi.198.13')) %>%
-  add_row(Reservoir = 'FCR', Site = 50, Date = as.Date('2018-08-19'),
-          Year = 2018, Depth_m = as.factor(9), DO_mgL = NA, 
-          Method = as.factor('edi.198.13')) %>%
-  add_row(Reservoir = 'BVR', Site = 50, Date = as.Date('2018-12-05'),
-          Year = 2018, Depth_m = as.factor(10), DO_mgL = NA, 
-          Method = as.factor('edi.198.13')) %>%
-  add_row(Reservoir = 'BVR', Site = 50, Date = as.Date('2019-05-17'),
-          Year = 2019, Depth_m = as.factor(10), DO_mgL = NA, 
-          Method = as.factor('edi.198.13')) %>%
-  #add_row(Reservoir = 'BVR', Site = 50, Date = as.Date('2019-10-18'),
-  #        Year = 2019, Depth_m = as.factor(10), DO_mgL = NA, 
-  #        Method = as.factor('edi.198.13')) %>%
+  filter(Date <= as.Date('2023-12-31')) %>% 
+  ungroup() %>% #adding NAs to create appropriate line breaks
   add_row(Reservoir = 'BVR', Site = 50, Date = as.Date('2020-01-01'),
           Year = 2020, Depth_m = as.factor(10), DO_mgL = NA, 
-          Method = as.factor('edi.725.5')) %>% 
-  add_row(Reservoir = 'BVR', Site = 50, Date = as.Date('2020-03-15'),
+          Method = as.factor('edi.725.5')) %>%
+  add_row(Reservoir = 'BVR', Site = 50, Date = as.Date('2020-05-15'),
           Year = 2020, Depth_m = as.factor(10), DO_mgL = NA, 
-          Method = as.factor('edi.198.13')) %>% 
-    add_row(Reservoir = 'BVR', Site = 50, Date = as.Date('2020-05-15'),
-          Year = 2020, Depth_m = as.factor(10), DO_mgL = NA, 
-          Method = as.factor('edi.198.13')) %>%
-  add_row(Reservoir = 'BVR', Site = 50, Date = as.Date('2020-06-05'),
-          Year = 2020, Depth_m = as.factor(10), DO_mgL = NA, 
-          Method = as.factor('edi.198.13')) %>%
-arrange(Date)
+          Method = as.factor('edi.198.13'))
+
 
 
 DO_plot1 <- DO %>% 
   ggplot() +
   scale_x_date(name = '', date_breaks = '1 year', date_labels = '%Y') +
   theme_bw(base_size = 18) + theme(panel.grid = element_blank()) +
-  geom_line(aes(x = Date, y = DO_mgL, color = Reservoir, linetype = Method)) +
-  scale_linetype_manual(values = c('solid', 'solid', 'dotted')) + 
-  guides(linetype = guide_legend(title = 'Data Package')) +
+  geom_line(aes(x = Date, y = DO_mgL, color = Reservoir)) +
+  geom_point(aes(x = Date, y = DO_mgL, color = Reservoir), data = DO4, size = 0.5) +
   ylab('Dissolved Oxygen (mg/L)')
 ```
 
@@ -705,7 +681,7 @@ DO_CumulMetal_plotFinal
 ```{r Tables script, eval=TRUE, include=FALSE}
 AvgFluxSummary2018_2023 <- avgFluxes2018_2023 %>% 
   filter(TO == 'Pre') %>% 
-  group_by(Reservoir, Layer) %>% 
+  group_by(Reservoir, Layer, Year) %>% 
   summarise(MeanFeFlux = round(mean(AvgTFeFlux_gm2d, na.rm = T), digits = 3),
             MeanMnFlux = round(mean(AvgTMnFlux_gm2d, na.rm = T), digits = 3),
             MedianFeFlux = round(median(AvgTFeFlux_gm2d, na.rm = T), digits = 3),
@@ -793,7 +769,7 @@ ggsave(comboPlot1, file = 'STFeMn_2020_2023.png', path = myFilePath, height = 6,
 ggsave(plot = FluxPlot, filename = 'Flux_HOxBoxes_2018-2023.png', path = myFilePath, height = 4, width = 8, units = 'in')
 #Figure S3
 ggsave(DO_plot1, file = 'HypolimnionDO_2018_2023.png', path = myFilePath, height = 4, 
-       width = 6, units = 'in')
+       width = 8, units = 'in')
 #Figure S4
 ggsave(DO_CumulMetal_plotFinal, file = 'DOps_MaxMetal.png', path = myFilePath,
        height = 5, width = 8, units = 'in')
