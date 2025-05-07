@@ -301,7 +301,7 @@ ComboFluxPlot
 
 ## Figure 8. Cumulative Sed Mass Plot
 ```{r Figure 8 script, eval=TRUE, include=FALSE}
-plot_vline <- read_csv('~/Documents/R Projects/Sed Traps/TO_Dates.csv') %>% 
+plot_vline <- read_csv('TO_Dates.csv') %>% 
   mutate(Date = as.Date(Date),
          Event = as.factor(Event),
          Reservoir = as.factor(Reservoir),

@@ -10,7 +10,7 @@ Includes script for making Figures 2-5 and S2. Script written by ABP and updated
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-pacman::p_load(tidyverse, akima, reshape2, gridExtra, colorRamps, RColorBrewer, ggpubr, geomtextpath, scales)
+pacman::p_load(tidyverse, akima, reshape2, gridExtra, colorRamps, RColorBrewer, ggpubr, geomtextpath, scales, rLakeAnalyzer)
 
 source("https://raw.githubusercontent.com/CareyLabVT/Reservoirs/master/Data/DataAlreadyUploadedToEDI/EDIProductionFiles/Heatmap_EDI_function.R")
 ```
