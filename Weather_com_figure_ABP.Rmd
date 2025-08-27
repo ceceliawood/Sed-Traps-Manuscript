@@ -1,0 +1,89 @@
+---
+title: "Figure for Weather Comparison"
+output: html_notebook
+author: "Adrienne Breef-Pilz"
+date: "2025-08-27"
+---
+
+This Markdown makes a figure comparing the average temperature, daily rain fall, and windspeed from Falling Creek Reservoir from 2018-2023. It uses data from EDI. The plot is for the SI of Cece Wood's Sed Trap manuscript. 
+
+```{r set up}
+# load data packages
+pacman::p_load(tidyverse)
+
+```
+
+```{r read in data}
+
+# read in data from EDI and filter down to 2018-2023 and variables of temp, rainfall, and wind speed
+
+# reading in the data package from 2024 to stay consistent with the other data products
+met <- read_csv("https://pasta.lternet.edu/package/data/eml/edi/389/8/d4c74bbb3b86ea293e5c52136347fbb0")
+
+# filter down the data frame to the correct date and select the columns we need
+met_2018_23 <- met|>
+  filter(DateTime>=as.Date("2018-01-01") & DateTime< as.Date("2024-01-01"))|>
+  select(DateTime, AirTemp_C_Average, Rain_Total_mm, WindSpeed_Average_m_s)|>
+  mutate(Date = as.Date(DateTime))
+  
+```
+
+```{r Daily average temp and wind speed}
+# Get the daily average of temperature and wind speed
+
+met_avg <- met_2018_23|>
+  select(Date, AirTemp_C_Average, WindSpeed_Average_m_s)|>
+  group_by(Date)|>
+  summarise_at(vars(AirTemp_C_Average:WindSpeed_Average_m_s), mean, na.rm = TRUE)
+
+
+```
+
+```{r Daily sum of rain}
+#Get the daily sum of rain fall and convert it from mm to cm
+
+met_sum <- met_2018_23|>
+  select(Date, Rain_Total_mm)|>
+  group_by(Date)|>
+  summarise(Rain_Total_sum_cm = sum(Rain_Total_mm)/10)
+
+```
+
+```{r merge}
+# Merge the daily average data frame with the daily sum of rainfall data frame
+met_all <- merge(met_avg, met_sum)
+
+met_all <- met_all|>
+  mutate(DOY = yday(Date),
+         Year = year(Date),
+         ddate = as.Date(DOY-1)) # make the DOY into a date but it is off by 1 so subtract and then convert it into a date format. This way they all have the same year and will stack on top of one another
+  
+# pivot the data frame longer to use facet_grid below
+met_all_long <- met_all|>
+  pivot_longer(!c(Date, DOY, Year, ddate), names_to = "variable", values_to = "obs")
+
+```
+
+```{r Figure}
+# Make the figure and save it in the figures folder
+
+# Rename the variable to fit in the labels
+hum_names <- as_labeller(
+     c(`Rain_Total_sum_cm` = "Daily Rain Toal cm", `AirTemp_C_Average` = "Daily Average Air Temp C",`WindSpeed_Average_m_s` = "Daily Averge Wind Speed m/s"))
+
+# Make the plot here
+ggplot(met_all_long, aes(x = ddate, y = obs, color = as.factor(Year)))+
+  geom_point()+ # point or line?
+  facet_grid(vars(variable), scales = "free", labeller = hum_names)+
+  labs(color='Year') + 
+  ylab("")+
+  xlab("Date")+
+  scale_x_date(date_breaks = "2 month", date_minor_breaks = "1 month",
+             date_labels = "%B")+
+  theme_bw(base_size = 15) #size of all the text in the figure. 
+
+
+ # can change dimensions as you see fit 
+ggsave("figures/Met_com_2018_2023.png", width = 10, height = 8, dpi = 300, units = "in", device='png')
+```
+
