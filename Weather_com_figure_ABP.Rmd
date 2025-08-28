@@ -65,25 +65,98 @@ met_all_long <- met_all|>
 ```
 
 ```{r Figure}
-# Make the figure and save it in the figures folder
+# Make the figures on one panel and save it in the figures folder
+# Just going to comment this out, but save it 
 
-# Rename the variable to fit in the labels
-hum_names <- as_labeller(
-     c(`Rain_Total_sum_cm` = "Daily Rain Toal cm", `AirTemp_C_Average` = "Daily Average Air Temp C",`WindSpeed_Average_m_s` = "Daily Averge Wind Speed m/s"))
+# # Rename the variable to fit in the labels
+# hum_names <- as_labeller(
+#      c(`Rain_Total_sum_cm` = "Daily Rain Toal cm", `AirTemp_C_Average` = "Daily Average Air Temp C",`WindSpeed_Average_m_s` = "Daily Averge Wind Speed m/s"))
+# 
+# # Make the plot here
+# ggplot(met_all_long, aes(x = ddate, y = obs, color = as.factor(Year)))+
+#   geom_point()+ # point or line?
+#   facet_grid(vars(variable), scales = "free", labeller = hum_names)+
+#   labs(color='Year') + 
+#   ylab("")+
+#   xlab("Date")+
+#   scale_x_date(date_breaks = "2 month", date_minor_breaks = "1 month",
+#              date_labels = "%B")+
+#   theme_bw(base_size = 15) #size of all the text in the figure. 
+# 
+# 
+#  # can change dimensions as you see fit 
+# ggsave("figures/Met_com_2018_2023.png", width = 10, height = 8, dpi = 300, units = "in", device='png')
+```
+```{r Function to Make Plots}
 
-# Make the plot here
-ggplot(met_all_long, aes(x = ddate, y = obs, color = as.factor(Year)))+
-  geom_point()+ # point or line?
-  facet_grid(vars(variable), scales = "free", labeller = hum_names)+
-  labs(color='Year') + 
-  ylab("")+
+# Function to make the Plots
+
+met_plot <- function(data= met_all_long,
+                     VAR, 
+                     y_lab){
+
+a <- met_all_long%>%
+  filter(variable == VAR)%>%
+ggplot(., aes(x = ddate, y = obs, color = as.factor(Year)))+
+  geom_point()+ 
+  labs(color='Year') +
+  ylab(y_lab)+
   xlab("Date")+
   scale_x_date(date_breaks = "2 month", date_minor_breaks = "1 month",
              date_labels = "%B")+
-  theme_bw(base_size = 15) #size of all the text in the figure. 
+  theme_bw(base_size = 18) #size of all the text in the figure.
+
+return(a)
+}
+```
+
+```{r Temp Plot}
+temp <- met_plot(VAR = "AirTemp_C_Average", y_lab = expression(""* ~degree*C))
+temp
+
+ # can change dimensions as you see fit
+ggsave("figures/SI_Met_Comp/Temp_2018_2023.png", plot = temp,width = 10, height = 8, dpi = 300, units = "in", device='png')
+
+```
+
+```{r Wind speed}
+
+wind <- met_plot(VAR = "WindSpeed_Average_m_s", y_lab = "m/s")
+wind
+
+ # can change dimensions as you see fit
+ggsave("figures/SI_Met_Comp/Wind_2018_2023.png", plot = wind, width = 10, height = 8, dpi = 300, units = "in", device='png')
+
+```
+```{r Rain}
+rain <- met_plot(VAR = "Rain_Total_sum_cm", y_lab = "centimeters")
+rain
+
+ # can change dimensions as you see fit
+ggsave("figures/SI_Met_Comp/Rain_2018_2023.png", plot = rain, width = 10, height = 8, dpi = 300, units = "in", device='png')
+
+```
+
+```{r Violin plots}
+# Playing with box plots 
+
+Atemp <- met_2018_23%>%
+  mutate(Year = year(DateTime))%>%
+  ggplot(., aes(x = Year, y = AirTemp_C_Average, group = Year, fill = as.factor(Year)))+
+  geom_violin()+
+  theme_bw()
+
+Atemp
 
 
- # can change dimensions as you see fit 
-ggsave("figures/Met_com_2018_2023.png", width = 10, height = 8, dpi = 300, units = "in", device='png')
+Wspeed <- met_2018_23%>%
+  mutate(Year = year(DateTime))%>%
+  ggplot(., aes(x = Year, y = WindSpeed_Average_m_s, group = Year, fill = as.factor(Year)))+
+  geom_violin()+
+  theme_bw()
+
+Wspeed
+
+
 ```
 
