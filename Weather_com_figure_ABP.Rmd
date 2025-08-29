@@ -87,6 +87,7 @@ met_all_long <- met_all|>
 #  # can change dimensions as you see fit 
 # ggsave("figures/Met_com_2018_2023.png", width = 10, height = 8, dpi = 300, units = "in", device='png')
 ```
+
 ```{r Function to Make Plots}
 
 # Function to make the Plots
@@ -98,10 +99,10 @@ met_plot <- function(data= met_all_long,
 a <- met_all_long%>%
   filter(variable == VAR)%>%
 ggplot(., aes(x = ddate, y = obs, color = as.factor(Year)))+
-  geom_point()+ 
+  geom_line()+ 
   labs(color='Year') +
   ylab(y_lab)+
-  xlab("Date")+
+  xlab("")+
   scale_x_date(date_breaks = "2 month", date_minor_breaks = "1 month",
              date_labels = "%B")+
   theme_bw(base_size = 18) #size of all the text in the figure.
