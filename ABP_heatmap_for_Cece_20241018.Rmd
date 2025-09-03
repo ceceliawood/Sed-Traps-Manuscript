@@ -25,7 +25,8 @@ source("https://raw.githubusercontent.com/CareyLabVT/Reservoirs/master/Data/Data
    filter(Reservoir=="BVR"|Reservoir=="FCR")%>%
    filter(Site==50)%>%
    select(-starts_with("Flag"))%>%
-  mutate(Year=year(DateTime))%>%
+  mutate(Year=year(DateTime),
+         Date = date(DateTime))%>%
   filter(Depth_m>0)
 
 
@@ -33,12 +34,56 @@ source("https://raw.githubusercontent.com/CareyLabVT/Reservoirs/master/Data/Data
 
 CTD_casts <- EDI_CTD |>
   select(Reservoir, DateTime, Year)|>
-  unique()
+  mutate(Date = date(DateTime)) %>% 
+  distinct(Reservoir, Date, .keep_all = TRUE)
 
 # GEt the month and date for easier graphing. This is not the correct date.   
   CTD_casts$MDay <- format(CTD_casts$DateTime,"%m-%d")
   CTD_casts$MDay <- as.Date(CTD_casts$MDay, "%m-%d")
+  
+  
+# Make a vector of sampling days so CTD and handhelds do not overlap
+  CTD_days <- EDI_CTD %>% 
+    select(Date) %>% 
+    unique()
+  
+# add in handhelds to supplement data gaps
+  Handhelds  <- read_csv("https://pasta.lternet.edu/package/data/eml/edi/198/13/e50a50d062ee73f4d85e4f20b360ce4f") %>% 
+    filter(between(DateTime, as.Date('2018-01-01 00:00:00'),
+                   as.Date('2023-12-31 23:59:59')),
+           Reservoir == 'FCR' | Reservoir == 'BVR',
+           Site == 50,
+           Depth_m >= 0) %>% 
+    arrange(DateTime)
 
+'%!in%' <- function(x,y)!('%in%'(x,y))
+
+Handhelds1 <- Handhelds %>% 
+  mutate(Date = date(DateTime),
+         Year = year(DateTime)) %>% 
+  filter(Date %!in% CTD_days$Date) %>% 
+  select(Reservoir, Site, DateTime, Depth_m, Temp_C, DO_mgL, Date, Year) %>% 
+  #fixing leap day issue, shifting sample date by one day
+  mutate(Date = if_else(Date == as.Date('2020-02-29'), 
+                          as.Date('2020-02-28'), Date))
+
+# Make a df of just the casts
+
+Handheld_days <- Handhelds1 |>
+  select(Reservoir, Date, DateTime, Year)|>
+  distinct(Reservoir, Date, .keep_all = TRUE)
+
+# GEt the month and date for easier graphing. This is not the correct date.   
+  Handheld_days$MonthDay <- format(Handheld_days$Date,"%m-%d")
+  Handheld_days$MDay <- as.Date(Handheld_days$MonthDay, "%m-%d")
+  
+
+EDI_CTD_Handhelds <- EDI_CTD %>% 
+  select(Reservoir, Site, DateTime, Depth_m, Temp_C, DO_mgL, Date, Year) %>% 
+  rbind(Handhelds1) %>% 
+  na.omit() %>% 
+  arrange(Date)
+  
 ```
 
 
@@ -131,7 +176,7 @@ heat_interp <- function(
         interp <- interp2xyz(interp(x = as.numeric(bvr$Date), y= bvr$Depth_m, z= unlist(bvr[[var]]),
                                         xo = seq(min(bvr$Date), max(bvr$Date), "day"),
                                         yo = seq(min(bvr$Depth_m), max(bvr$Depth_m), 
-                                                 by = 0.1), 
+                                                 by = 0.5), 
                                         duplicate = "mean"),data.frame = T)
         interp2<-interp%>%
     mutate(Date=as.Date(x, origin = "1970-01-01"),
@@ -142,9 +187,7 @@ heat_interp <- function(
 }
 ```
 
-
-
-```{r plotting}
+```{r heat map}
 
 
 #custom_heatmap_palettes <- c("#313695", "#4575b4", "#74add1",
@@ -154,8 +197,9 @@ heat_interp <- function(
 
 make_heat_map <- function(
     data,
-    sample_dates,
-    turnovers, 
+    sample_dates1,
+    sample_dates2,
+    turnovers,
     y_lim,
     custom_heatmap_palette,
     y_units,
@@ -171,7 +215,8 @@ water_temp <- data%>%
   filter(!is.na(z))%>%
   ggplot()+
   geom_raster(aes(x=MDay, y=y,fill = z))+
-  geom_point(data = sample_dates, aes(x = MDay, y = 0.1, z = NULL), pch = '|', size = 2, color = "black") + #to mark cast dates 
+  geom_point(data = sample_dates1, aes(x = MDay, y = 0.1, z = NULL), pch = '|', size = 2, color = "black") + #to mark cast dates 
+  geom_point(data = sample_dates2, aes(x = MDay, y = 0.1, z = NULL), pch = '|', size = 2, color = "black") +
    geom_vline(data= turnovers, aes(xintercept=MDay) , linetype="solid", color="black", linewidth=0.5) +
   labs(y = "Depth (m)") +
   scale_x_date(expand = c(0,0)) +
@@ -212,7 +257,7 @@ dev.off()
 #   select(Reservoir, DateTime, Year, Depth_m, Temp_C)
 
 wer <- data.frame(
-  data= c(rep("EDI_CTD",12)),
+  data= c(rep("EDI_CTD_Handhelds",12)),
   var = c(rep("Temp_C",12)),
   Res = c(rep("FCR",6), rep("BVR",6)),
   Years = c(rep(2018:2023,2))
@@ -232,7 +277,7 @@ system.time(sd <- wer%>%
   
   
 # GEt the month and date for easier graphing. This is not the correct date.   
-  temp_df$MDay <- format(temp_df$Date,"%m-%d")
+temp_df$MDay <- format(temp_df$Date,"%m-%d")
 temp_df$MDay <- as.Date(temp_df$MDay, "%m-%d")
 
 
@@ -240,15 +285,20 @@ temp_df$MDay <- as.Date(temp_df$MDay, "%m-%d")
 
 make_heat_map(
   data= temp_df,
-  sample_dates = CTD_casts,
+  sample_dates1 = CTD_casts,
+  sample_dates2 = Handheld_days,
   turnovers = turnover, 
   y_lim = c(-1, 30),
   custom_heatmap_palette = blue2green2red(60),
   y_units = "Water temperature (°C)",
-  output_file = "figures/SedTraps_CTD_waterTemp_2018_2023.jpeg"
+  output_file = "figures/SedTraps_waterTemp_2018_2023.jpeg"
 )
 
 ```
+
+
+
+
 
 ```{r Make DO plot}
 
@@ -256,7 +306,7 @@ make_heat_map(
 #   select(Reservoir, DateTime, Year, Depth_m, Temp_C)
 
 wer <- data.frame(
-  data= c(rep("EDI_CTD",12)),
+  data= c(rep("EDI_CTD_Handhelds",12)),
   var = c(rep("DO_mgL",12)),
   Res = c(rep("FCR",6), rep("BVR",6)),
   Years = c(rep(2018:2023,2))
@@ -284,17 +334,16 @@ temp_df$MDay <- as.Date(temp_df$MDay, "%m-%d")
 
 make_heat_map(
   data= temp_df,
-  sample_dates = CTD_casts,
+  sample_dates1 = CTD_casts,
+  sample_dates2 = Handheld_days,
   turnovers = turnover, 
   y_lim = c(-1,16),
   custom_heatmap_palette = rev(blue2green2red(60)),
   y_units = "Dissolved Oxygen mg/L",
-  output_file = "figures/SedTraps_CTD_DO_2018_2023.jpeg"
+  output_file = "figures/SedTraps_DO_2018_2023.jpeg"
 )
 
 ```
-
-
 
 
 ```{r metals plotting script}
@@ -402,7 +451,6 @@ metDates$MDay <- format(metDates$DateTime,"%m-%d")
 ```
 
 
-
 ```{r Make TMn plot}
 wer <- data.frame(
   data= c(rep("met",12)),
@@ -489,8 +537,6 @@ MnPlot <- ggarrange(p1, p2, ncol = 1, labels = c('A', 'B'), common.legend = TRUE
 MnPlot
 ggsave(MnPlot, filename = "figures/SedTraps_Mn_2018_2023.png", height = 6, width = 8, units = 'in')
 ```
-
-
 
 
 ```{r Make TFe plot}
@@ -631,6 +677,7 @@ dev.off()
 }
 ```
 
+
 ```{r Make S:T Fe plot}
 wer <- data.frame(
   data= c(rep("metratio",12)),
@@ -711,11 +758,15 @@ p6 <- make_metals_ratio_heat_map(
 ```
 
 
-
-
 ```{r}
 STPlot <- ggarrange(p5, p6, ncol = 1, labels = c('A', 'B'), common.legend = TRUE,
                     legend = 'bottom')
 STPlot
 ggsave(STPlot, filename = "figures/SedTraps_STRatio_2018_2023.png", height = 6, width = 8, units = 'in')
 ```
+
+
+
+
+
+
