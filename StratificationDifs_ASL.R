@@ -492,9 +492,9 @@ fcre_temp_profile %>%
   geom_point()+
   geom_vline(aes(xintercept = start, color = site_id, lty = "Onset"), data = strat_dates)+
   geom_vline(aes(xintercept = end, color = site_id, lty = "Turnover"), data = strat_dates)+
-  ylab("Maximum buoyancy frequency (1/s)")+
+  ylab("Maximum Buoyancy Frequency (1/s)")+
   scale_linetype_discrete(name = "Stratification")+
-  facet_wrap(~site_id, ncol = 1)+
+  facet_wrap(~site_id, ncol = 1)+ labs(color = 'Site') +
   theme_bw()+
   theme(axis.title.x = element_blank())
 dev.off()
@@ -514,8 +514,8 @@ fcre_temp_profile %>%
   geom_abline()+
   geom_smooth(method = "lm")+
   theme_bw()+
-  xlab("FCR buoyancy frequency (1/s)")+
-  ylab("BVR buoyancy frequency (1/s)")
+  xlab("FCR Buoyancy Frequency (1/s)")+
+  ylab("BVR Buoyancy Frequency (1/s)")
 dev.off()
 
 strat_dates %>%
