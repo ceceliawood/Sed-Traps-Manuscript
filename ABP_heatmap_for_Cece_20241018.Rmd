@@ -216,7 +216,7 @@ water_temp <- data%>%
   ggplot()+
   geom_raster(aes(x=MDay, y=y,fill = z))+
   geom_point(data = sample_dates1, aes(x = MDay, y = 0.1, z = NULL), pch = '|', size = 2, color = "black") + #to mark cast dates 
-  geom_point(data = sample_dates2, aes(x = MDay, y = 0.1, z = NULL), pch = '|', size = 2, color = "red") +
+  geom_point(data = sample_dates2, aes(x = MDay, y = 0.1, z = NULL), pch = '|', size = 2, color = "black") +
    geom_vline(data= turnovers, aes(xintercept=MDay) , linetype="solid", color="black", linewidth=0.5) +
   labs(y = "Depth (m)") +
   scale_x_date(expand = c(0,0)) +
