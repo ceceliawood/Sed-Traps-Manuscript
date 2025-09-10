@@ -498,6 +498,130 @@ make_pH_heat_map(
 
 ```
 
+```{r turbidity set up}
+CTD_turb <- EDI_CTD %>% 
+  select(Reservoir, Site, DateTime, Depth_m, Turbidity_NTU, Date, Year) %>% 
+  na.omit() %>% 
+  filter(Turbidity_NTU <= 100)
+
+CTD_turb_casts <- CTD_turb |>
+  select(Reservoir, DateTime, Year)|>
+  mutate(Date = date(DateTime)) %>% 
+  distinct(Reservoir, Date, .keep_all = TRUE)
+
+# GEt the month and date for easier graphing. This is not the correct date.   
+  CTD_turb_casts$MDay <- format(CTD_turb_casts$DateTime,"%m-%d")
+  CTD_turb_casts$MDay <- as.Date(CTD_turb_casts$MDay, "%m-%d")
+```
+
+```{r turbidity heat map}
+
+
+#custom_heatmap_palettes <- c("#313695", "#4575b4", "#74add1",
+#                            "#abd9e9", "#e0f3f8", "#ffffbf", 
+#                            "#fee090","#fdae61", "#f46d43", 
+#                            "#d73027", "#a50026")
+
+make_turb_heat_map <- function(
+    data,
+    sample_dates1,
+    turnovers,
+    y_lim,
+    custom_heatmap_palette,
+    y_units,
+    output_file){
+
+#Heatmap
+  
+# change the plots dimensions  
+jpeg(paste0(output_file),width = 8, height = 4, units = "in", res = 400)
+water_temp <- data%>%
+  mutate(x = as.Date(x, origin = "1970-01-01"),
+         Year = year(x))%>%
+  filter(!is.na(z))%>%
+  ggplot()+
+  geom_raster(aes(x=MDay, y=y,fill = z))+
+  geom_point(data = sample_dates1, aes(x = MDay, y = 0.1, z = NULL), pch = '|', size = 2, color = "black") + #to mark cast dates 
+   geom_vline(data= turnovers, aes(xintercept=MDay) , linetype="solid", color="black", linewidth=0.5) +
+  labs(y = "Depth (m)") +
+  scale_x_date(expand = c(0,0)) +
+  scale_y_reverse(expand = c(0,0)) +
+  #scale_y_continuous(expand = c(0,0))+
+  theme(panel.border = element_rect(fill = NA),
+        axis.title.x=element_blank())+
+  scale_fill_gradientn(name = y_units,
+                       limits = y_lim,
+                       colours = custom_heatmap_palette,
+                       values=rescale(c(0,20,100)))+
+  facet_grid(rows= vars(Reservoir),cols = vars(Year),
+             scales = "free_y",
+             space = "free"
+             )+
+  theme(panel.background = element_rect(fill = "white"),
+          panel.spacing.x = unit(0.05, "lines"),
+        legend.position = 'bottom',
+        panel.grid = element_blank())
+  theme_bw(base_size = 18)
+  # labs(color = "")+
+  # geom_point(data = sensor_depth_plot, 
+  #            aes(x = Date, y = Sensor_depth), 
+  #            shape = 23, fill = "black", color = "white", size  =2.5)+
+  # geom_vline(data=lines,aes(xintercept = Dates), show.legend = F)+
+  # scale_linetype_manual(values = c("solid","84"),
+  #                       limits = c("Thermocline","Outtake pipe"),  
+  #                       name= NULL)+
+  
+print(water_temp)
+dev.off()
+
+}
+```
+
+```{r Make turbidity plot}
+
+# EDI_CTD_temp <- EDI_CTD|>
+#   select(Reservoir, DateTime, Year, Depth_m, Temp_C)
+
+wer <- data.frame(
+  data= c(rep("CTD_turb",12)),
+  var = c(rep("Turbidity_NTU",12)),
+  Res = c(rep("FCR",6), rep("BVR",6)),
+  Years = c(rep(2018:2023,2))
+)
+
+system.time(sd <- wer%>%
+             pmap(heat_interp))
+
+#Bind all the QAQC files from above
+   temp_df <- dplyr::bind_rows(sd)
+
+
+  temp_df <- temp_df%>%
+    filter(!is.na(Reservoir),
+           y>0.1) %>% 
+    na.omit()
+  
+  
+  
+# GEt the month and date for easier graphing. This is not the correct date.   
+temp_df$MDay <- format(temp_df$Date,"%m-%d")
+temp_df$MDay <- as.Date(temp_df$MDay, "%m-%d")
+
+
+# make the plot
+
+make_turb_heat_map(
+  data= temp_df,
+  sample_dates1 = CTD_turb_casts,
+  turnovers = turnover, 
+  y_lim = c(0, 100),
+  custom_heatmap_palette = blue2green2red(60),
+  y_units = "Turbidity (NTU)",
+  output_file = "figures/SedTraps_turbidity_2018_2023.jpeg"
+)
+
+```
+
 ```{r metals plotting script}
 
 
