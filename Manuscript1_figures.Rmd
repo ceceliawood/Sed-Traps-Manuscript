@@ -22,6 +22,7 @@ output:
 5. Carey, C.C., A. Breef-Pilz, H.L. Wander, D.W. Howard, G.K. Haynie, M.K. Kricheldorf, S. Tannheiser, and E.M. Tipper. 2025. Secchi depth data and discrete depth profiles of water temperature, dissolved oxygen, conductivity, specific conductance, photosynthetic active radiation, oxidation-reduction potential, and pH for Beaverdam Reservoir, Carvins Cove Reservoir, Falling Creek Reservoir, Gatewood Reservoir, and Spring Hollow Reservoir in southwestern Virginia, USA 2013-2024 ver 13. Environmental Data Initiative. https://doi.org/10.6073/pasta/0df2b12c947e52a8d0240a75d20bbc1e.
 
 
+
 ## Figures 6-9, S1, S3, and S4
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(include = FALSE)
@@ -588,6 +589,8 @@ DO4 <- Handhelds %>%
          Method = 'edi.198.13') %>% 
   drop_na()
 
+DOF4 <- DO4 %>% 
+  filter(Reservoir == 'FCR')
          
 DO <- DO1 %>% 
   full_join(DO2) %>% 
@@ -675,6 +678,9 @@ DO_CumulMetal_plotFinal <- annotate_figure(DO_CumulMetal_plot1, bottom = text_gr
 ```{r Figure S4, eval=TRUE, include=TRUE}
 DO_CumulMetal_plotFinal
 ```
+
+
+
 
 
 ## Tables
@@ -774,4 +780,19 @@ ggsave(DO_plot1, file = 'HypolimnionDO_2018_2023.png', path = myFilePath, height
 ggsave(DO_CumulMetal_plotFinal, file = 'DOps_MaxMetal.png', path = myFilePath,
        height = 5, width = 8, units = 'in')
 ```
+
+```{r}
+DO_plot2 <- DO %>%
+  filter(Reservoir == 'FCR') %>% 
+  ggplot() + theme_bw() + theme(panel.grid = element_blank()) + 
+  facet_grid(cols = vars(Year), scales = 'free') +
+  scale_x_date(date_labels = '%b', breaks = '3 months') +
+  geom_line(aes(x = Date, y = DO_mgL, color = Reservoir)) +
+  geom_point(aes(x = Date, y = DO_mgL, color = Reservoir),
+             data = DOF4, size = 0.5) +
+  geom_rect(aes(xmin = HOxOn, xmax = HOxOff, group = Group), ymin = -Inf, ymax = Inf, data = HOxBoxes, alpha = 0.2) +
+  ylab('Dissolved Oxygen (mg/L)')
+
+```
+
 
